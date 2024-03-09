@@ -9,7 +9,8 @@ import octopyplug.octo_pb2_grpc as octo_pb2__grpc
 
 class MessageService(octo_pb2__grpc.MessageServiceServicer):
     def OctoMessage(self, request, context):
-        print("Received message from client:", request.json_message)
+        json_message = json.loads(request.json_message)
+        print("Received message from client:", json_message)
         return octo__pb2.OctoResponse(json_message="Message received successfully")
 
     def GetDataFormat(self, request, context):

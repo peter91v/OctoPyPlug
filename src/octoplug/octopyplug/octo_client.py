@@ -34,4 +34,4 @@ if __name__ == "__main__":
         sys.exit(1)
     json_message = json.loads(sys.argv[1])
     test = run(json_message, (sys.argv[2]))
-    print(test.json_message)
+    print(test)
