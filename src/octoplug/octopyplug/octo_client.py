@@ -1,4 +1,6 @@
-import argparse  # Bibliothek zum Parsen von Befehlszeilenargumenten
+import argparse
+from datetime import datetime, timedelta
+import os  # Bibliothek zum Parsen von Befehlszeilenargumenten
 import grpc  # Bibliothek für gRPC-Kommunikation
 import logging  # Bibliothek zum Protokollieren von Informationen
 import json  # Bibliothek zum Arbeiten mit JSON-Daten
@@ -43,6 +45,25 @@ def create_client_channel(addr: str) -> grpc.Channel:
     return channel
 
 
+def is_file_recent(file_path, days=5):
+    """
+    Überprüft, ob die Datei vorhanden und nicht älter als die angegebene Anzahl von Tagen ist.
+
+    Args:
+        file_path (str): Der Pfad zur zu überprüfenden Datei.
+        days (int): Die maximale Anzahl von Tagen, die die Datei zurückliegen darf. Standardmäßig 5 Tage.
+
+    Returns:
+        bool: True, wenn die Datei vorhanden und nicht älter als die angegebene Anzahl von Tagen ist, False sonst.
+    """
+    if not os.path.exists(file_path):
+        return False
+    file_time = os.path.getmtime(file_path)
+    current_time = datetime.now().timestamp()
+    age_in_days = (current_time - file_time) / (60 * 60 * 24)
+    return age_in_days <= days
+
+
 def run(channel: grpc.Channel, json_message: Any, type: str) -> Any:
     """
     Funktion zum Ausführen einer RPC-Anfrage an den Server.
@@ -62,8 +83,16 @@ def run(channel: grpc.Channel, json_message: Any, type: str) -> Any:
             # Senden der Anfrage zum Senden einer Nachricht
             response = stub.OctoMessage(octo_pb2.OctoRequest(json_message=json_string))
         elif type == _CLIENT_REQUEST_TYPES[1]:
-            # Senden der Anfrage zum Abrufen des Datenformats
-            response = stub.GetDataFormat(octo_pb2.OctoRequest())
+            if not is_file_recent("dataschema.json"):
+                # Datei ist nicht vorhanden oder älter als 5 Tage, rufen Sie den Server mit GetFormat auf
+                response = stub.GetDataFormat(octo_pb2.OctoRequest())
+                # Speichern Sie das empfangene Datenformat in dataschema.json
+                with open("dataschema.json", "w") as file:
+                    file.write(response.json_message)
+            else:
+                # Verwenden Sie die vorhandene dataschema.json-Datei
+                with open("dataschema.json", "r") as file:
+                    response = octo_pb2.OctoResponse(json_message=file.read())
         else:
             response = None
     except grpc.RpcError as rpc_error:
@@ -92,7 +121,9 @@ def main():
 
     # Laden der JSON-Nachricht
     json_message = json.loads(args.json_message)
-
+    with create_client_channel(_SERVER_ADDR_TEMPLATE % args.port) as channel:
+        # Ausführen der RPC-Anfrage
+        response = run(channel, json_message, "GetFormat")
     # Erstellen des gRPC-Clientkanals
     with create_client_channel(_SERVER_ADDR_TEMPLATE % args.port) as channel:
         # Ausführen der RPC-Anfrage
