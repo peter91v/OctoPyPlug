@@ -69,7 +69,7 @@ def get_json():
         return jsonify({"received_data": response_data}), 200
     else:
         # Wenn kein "data"-Parameter angegeben ist, eine Bestätigungsnachricht zurückgeben
-        return jsonify({"message": "No data provided"}), 200
+        return jsonify({"error": "No JSON data provided in the request"}), 400
 
 # POST-Endpunkt zum Empfangen von JSON-Daten
 @app.route("/post_example", methods=["POST"])

@@ -1,5 +1,5 @@
 # OctoPyPlug
-Solang es keine automatisierte intalation gib muss Manuell durchgeführt werden:
+Solang es keine automatisierte installation gib muss Manuell durchgeführt werden:
     python.exe -m pip install --upgrade pip
     pip install flask
     pip install flask_cors
