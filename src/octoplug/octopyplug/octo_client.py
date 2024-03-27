@@ -1,18 +1,21 @@
 import argparse
 from datetime import datetime, timedelta
-import os  # Bibliothek zum Parsen von Befehlszeilenargumenten
-import grpc  # Bibliothek für gRPC-Kommunikation
-import logging  # Bibliothek zum Protokollieren von Informationen
-import json  # Bibliothek zum Arbeiten mit JSON-Daten
-from typing import Any  # Typ für beliebige Objekte
+import os
+import grpc
+import json
+from typing import Any
 
-import _credentials  # Import von benutzerdefinierten Anmeldeinformationen
-import octopyplug.octo_pb2 as octo_pb2  # Import der generierten Protokollklassen
-import octopyplug.octo_pb2_grpc as octo_pb2_grpc  # Import der generierten gRPC-Services
+import _credentials
+import octopyplug.octo_pb2 as octo_pb2
+import octopyplug.octo_pb2_grpc as octo_pb2_grpc
+import classes.sensorplug as Sensorplug
 
-# Konfigurieren des Loggers
-_LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.INFO)
+# Importiere die LogHandler-Klasse
+from classes.loghandler import LogHandler
+
+# Erhalte den Logger von LogHandler
+log_handler = LogHandler(os.path.basename(__file__)[:-3], "D:\\DEV\\BAC2\\Log")
+logger = log_handler.get_logger()
 
 # Vorlage für die Serveradresse
 _SERVER_ADDR_TEMPLATE = "localhost:%d"
@@ -96,10 +99,10 @@ def run(channel: grpc.Channel, json_message: Any, type: str) -> Any:
         else:
             response = None
     except grpc.RpcError as rpc_error:
-        _LOGGER.error("Received error: %s", rpc_error)
+        logger.error("Received error: %s", rpc_error)
         return rpc_error
     else:
-        _LOGGER.info("Received message: %s", response)
+        logger.info("Received message: %s", response)
         return response
 
 
@@ -119,21 +122,14 @@ def main():
     )
     args = parser.parse_args()
 
-    # Laden der JSON-Nachricht
-    json_message = json.loads(args.json_message)
     with create_client_channel(_SERVER_ADDR_TEMPLATE % args.port) as channel:
         # Ausführen der RPC-Anfrage
-        response = run(channel, json_message, "GetFormat")
-    # Erstellen des gRPC-Clientkanals
-    with create_client_channel(_SERVER_ADDR_TEMPLATE % args.port) as channel:
-        # Ausführen der RPC-Anfrage
-        response = run(channel, json_message, args.type)
+        data = Sensorplug.SensorPlug.convert(args.json_message)
+        response = run(channel, data, args.type)
 
     # Drucken der Antwort
     print(response)
 
 
 if __name__ == "__main__":
-    # Konfigurieren des Loggers und Starten des Hauptprogramms
-    logging.basicConfig(level=logging.INFO)
     main()

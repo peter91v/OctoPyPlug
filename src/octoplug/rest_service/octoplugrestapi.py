@@ -1,111 +1,104 @@
+import argparse
 import json
 import logging
+import os
 import subprocess
 from flask_cors import CORS
 from flask import Flask, request, jsonify
 
-# Logger konfigurieren
-_LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.INFO)
+# Importiere die LogHandler-Klasse
+from classes.loghandler import LogHandler
 
-# Flask-App initialisieren
+# Erhalte den Logger von LogHandler
 app = Flask(__name__)
 CORS(app)
+log_handler = LogHandler(app.name, "D:\\DEV\\BAC2\\Log")
+LOGGER = log_handler.get_logger()
 
-# Funktion zum Lesen der Konfiguration aus einer Datei
-def read_config():
-    with open("D:\DEV\OctoPyPlug\src\config\config.txt", "r") as file:
+
+CONFIG_PATH = "D:\DEV\BAC2\src\config\config.txt"
+config = {}
+
+
+def load_config():
+    global config
+    with open(CONFIG_PATH, "r") as file:
         config = json.load(file)
-    return config
 
-# Konfiguration lesen
-config = read_config()
 
-# Konfigurationswerte für den Python-Interpreter und den Pfad zum Octo-Client abrufen
-python_executable = config.get("python_executable", "")
-octo_client_path = config.get("octo_client_path", "")
+load_config()
 
-# GET-Endpunkt zum Empfangen von JSON-Daten
+
+def run_subprocess(json_string: str):
+    python_executable = config.get("python_executable", "")
+    octo_client_path = config.get("octo_client_path", "")
+    result = subprocess.run(
+        [python_executable, octo_client_path, "5000", json_string, "SendMessage"],
+        stdout=subprocess.PIPE,
+    )
+    return result.stdout
+
+
 @app.route("/", methods=["GET"])
 def get_json():
-    # Abrufen der Anfrageparameter
     keys = request.args.keys()
-    _LOGGER.info("Request keys: %s", keys)
-    
-    # Zusammenführen aller Anfrageparameter in einem JSON-Objekt
-    json_data = {}
-    for key in keys:
-        json_data[key] = request.args.get(key)
-    
-    # Überprüfen, ob der Parameter "data" in der Anfrage vorhanden ist
-    data = request.args.get("data")
+    LOGGER.info("Request keys: %s", keys)
+    params_json = {key: request.args.get(key) for key in keys}
+    data = params_json.get("data")
+
     if data:
         try:
-            # Extrahieren der JSON-Daten aus der URL
-            json_string = json_data
+            params_json = json.loads(data)
+            json_string = json.dumps(params_json)
         except ValueError:
-            # Wenn die Daten kein JSON-Format haben, den JSON-String auf die erhaltenen Daten setzen
             json_string = data
 
-        # Externer Prozess mit Python-Ausführungsdatei und JSON-Daten starten
-        result = subprocess.run(
-            [
-                python_executable,
-                octo_client_path,
-                "5000",
-                json.dumps(json_string),  # Daten als JSON-String übergeben
-                "SendMessage",
-            ],
-            stdout=subprocess.PIPE,
-        )
+        result = run_subprocess(json_string)
 
-        # Daten als JSON-Objekt laden
         try:
-            response_data = json.loads(result.stdout)
+            response_data = json.loads(result)
         except json.JSONDecodeError:
-            response_data = result.stdout.decode()  # Fallback, falls die Antwort kein JSON ist
-
-        # Erfolgreiche Antwort mit empfangenen Daten und Statuscode 200 zurückgeben
+            response_data = result.decode().replace("\r", "").replace("\n", "")
         return jsonify({"received_data": response_data}), 200
-    else:
-        # Wenn kein "data"-Parameter angegeben ist, eine Bestätigungsnachricht zurückgeben
-        return jsonify({"error": "No JSON data provided in the request"}), 400
 
-# POST-Endpunkt zum Empfangen von JSON-Daten
+    return jsonify({"error": "No JSON data provided in the request"}), 400
+
+
 @app.route("/post_example", methods=["POST"])
 def post_example():
-    # JSON-Daten aus dem Request-Body abrufen
     data = request.json
+
     if data:
         try:
-            # Externer Prozess mit Python-Ausführungsdatei und JSON-Daten starten
-            result = subprocess.run(
-                [
-                    python_executable,
-                    octo_client_path,
-                    "5000",
-                    json.dumps(data),  # Daten als JSON-String übergeben
-                    "SendMessage",
-                ],
-                stdout=subprocess.PIPE,
-            )
-
-            # Daten als JSON-Objekt laden
+            json_string = json.dumps(data)
+            result = run_subprocess(json_string)
             try:
-                response_data = json.loads(result.stdout)
+                response_data = json.loads(result)
             except json.JSONDecodeError:
-                response_data = result.stdout.decode()  # Fallback, falls die Antwort kein JSON ist
-
-            # Erfolgreiche Antwort mit empfangenen Daten und Statuscode 200 zurückgeben
+                response_data = result.decode()
             return jsonify({"received_data": response_data}), 200
         except:
-            # Falls ein Fehler auftritt, eine allgemeine Fehlermeldung zurückgeben
-            return jsonify({"error": "An error occurred while processing the request"}), 500
-    else:
-        # Wenn kein JSON im Request-Body vorhanden ist, eine Fehlermeldung zurückgeben
-        return jsonify({"error": "No JSON data provided in the request"}), 400
+            return (
+                jsonify({"error": "An error occurred while processing the request"}),
+                500,
+            )
 
-# Flask-App starten
+    return jsonify({"error": "No JSON data provided in the request"}), 400
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--host", type=str, default="0.0.0.0", help="the host of server"
+    )
+    parser.add_argument("--port", type=int, default=50000, help="the port of server")
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    app.run(host="0.0.0.0", port=50000)
+    args = parse_arguments()
+    host = args.host
+    port = args.port
+    app.run(host, port)
+    LOGGER.info("RestApi wurde an Host: {host} mit Port: {port} gestartet.")

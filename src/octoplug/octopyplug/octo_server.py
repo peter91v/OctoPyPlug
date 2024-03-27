@@ -3,22 +3,26 @@ from concurrent import futures
 import contextlib
 import logging
 import json
-
+import os
+import datetime
 import grpc
 
 import _credentials  # Import von benutzerdefinierten Anmeldeinformationen
 import octopyplug.octo_pb2 as octo_pb2  # Import der generierten Protokollklassen
 import octopyplug.octo_pb2_grpc as octo_pb2_grpc  # Import der generierten gRPC-Services
 
-# Konfigurieren des Loggers
-_LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.INFO)
+# Importiere die LogHandler-Klasse
+from classes.loghandler import LogHandler
 
 # Vorlage für die Serveradresse
 _LISTEN_ADDRESS_TEMPLATE = "localhost:%d"
 # Schlüssel und Wert für die Authentifizierung
 _AUTH_HEADER_KEY = "authorization"
 _AUTH_HEADER_VALUE = "Bearer test_token"
+
+# Verwendung der LogHandler-Klasse für die Protokollierung
+log_handler = LogHandler(os.path.basename(__file__)[:-3], "D:\\DEV\\BAC2\\Log")
+logger = log_handler.get_logger()
 
 
 class SignatureValidationInterceptor(grpc.ServerInterceptor):
@@ -74,7 +78,7 @@ class MessageService(octo_pb2_grpc.MessageServiceServicer):
             OctoResponse: Antwortnachricht.
         """
         json_message = json.loads(request.json_message)
-        _LOGGER.info("Received message from client: %s", json_message)
+        logger.info("Received message from client: %s", json_message)
         return octo_pb2.OctoResponse(json_message="Message received successfully")
 
     def GetDataFormat(self, request, context):
@@ -153,12 +157,10 @@ def main():
 
     # Ausführen des Servers
     with run_server(args.port) as (server, port):
-        _LOGGER.info("Server is listening at port :%d", port)
+        logger.info("Server is listening at port :%d", port)
         # Auf das Beenden des Servers warten
         server.wait_for_termination()
 
 
 if __name__ == "__main__":
-    # Konfigurieren des Loggers und Starten des Hauptprogramms
-    logging.basicConfig(level=logging.INFO)
     main()

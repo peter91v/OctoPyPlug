@@ -1,4 +1,4 @@
 {
-    "python_executable": "D:\\DEV\\OctoPyPlug\\OctoVenv\\Scripts\\python.exe",
-    "octo_client_path": "D:\\DEV\\OctoPyPlug\\src\\octoplug\\octopyplug\\octo_client.py"
+    "python_executable": "D:\\DEV\\BAC2\\OctoVenv\\Scripts\\python.exe",
+    "octo_client_path": "D:\\DEV\\BAC2\\src\\octoplug\\octopyplug\\octo_client.py"
 }

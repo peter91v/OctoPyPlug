@@ -71,9 +71,11 @@ report.xml
 */success_log_to_rename.xml
 latency_trace.txt
 latency_trace.*.txt
-
+*.txt
+*.json
 # port server log
 portlog.txt
+*.log
 
 # gyp generated make files
 *-gyp.mk
@@ -186,3 +188,4 @@ fuzz-*.log
 # bazel module files (MODULE.bazel will need to be removed here)
 MODULE.bazel
 MODULE.bazel.lock
+src/octoplug/rest_service/urestservice.py
